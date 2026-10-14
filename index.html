@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mindstrike · 心战 联机版</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<style>
+  :root{
+    --c0:#3aa2ff; --c0b:#7cc4ff; --c0d:#16508f;   /* 蓝方 */
+    --c1:#ff5d73; --c1b:#ff9aab; --c1d:#a12a40;   /* 红方 */
+    --gold:#f7c948;
+    --ink:#e7eeff; --ink-dim:#93a1c8; --ink-faint:#6d7ba6;
+    --card:#141c38; --card-line:#2a3763;
+    --bg:#0b0f20; --bg2:#111731;
+  }
+  *{box-sizing:border-box; -webkit-user-select:none; user-select:none;}
+  html,body{height:100%;}
+  body{
+    margin:0; color:var(--ink); overflow:hidden;
+    font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(58,162,255,.16), transparent 60%),
+      radial-gradient(900px 500px at 88% -10%, rgba(255,93,115,.14), transparent 60%),
+      radial-gradient(1200px 700px at 50% 115%, rgba(247,201,72,.07), transparent 60%),
+      var(--bg);
+  }
+  button{font-family:inherit;}
+  .view{position:fixed; inset:0; display:flex; flex-direction:column; z-index:5;}
+  .hide{display:none !important;}
+  .dim{color:var(--ink-dim);}
+
+  /* ================= 通用按钮 ================= */
+  .bigbtn{
+    border:1px solid var(--card-line); border-radius:14px; background:rgba(255,255,255,.05);
+    color:var(--ink); padding:14px 18px; cursor:pointer; min-width:230px;
+    transition:.15s; font-size:15px; line-height:1.5;
+  }
+  .bigbtn small{display:block; color:var(--ink-dim); font-size:11.5px; margin-top:3px;}
+  .bigbtn:hover{transform:translateY(-2px);}
+  .bigbtn.blue{border-color:#22508f; background:linear-gradient(180deg,rgba(58,162,255,.16),rgba(58,162,255,.05));}
+  .bigbtn.blue:hover{border-color:var(--c0); box-shadow:0 6px 24px rgba(58,162,255,.28);}
+  .bigbtn.red{border-color:#7c2a3c; background:linear-gradient(180deg,rgba(255,93,115,.14),rgba(255,93,115,.04));}
+  .bigbtn.red:hover{border-color:var(--c1); box-shadow:0 6px 24px rgba(255,93,115,.28);}
+  .bigbtn.gold:hover{border-color:var(--gold); box-shadow:0 6px 24px rgba(247,201,72,.25);}
+  .bigbtn.primary{
+    border-color:#4b5f9e; background:linear-gradient(180deg,#26345f,#1a2445);
+    min-width:250px; font-weight:700; letter-spacing:2px; font-size:17px;
+  }
+  .bigbtn.primary:hover:not(:disabled){border-color:var(--gold); box-shadow:0 6px 28px rgba(247,201,72,.35);}
+  .bigbtn:disabled{opacity:.45; cursor:not-allowed; transform:none;}
+  .linkbtn{background:none; border:none; color:var(--ink-dim); cursor:pointer; font-size:12.5px;
+    text-decoration:underline; padding:6px;}
+  .linkbtn:hover{color:var(--ink);}
+  .iconbtn{
+    background:rgba(255,255,255,.06); border:1px solid var(--card-line); color:var(--ink-dim);
+    width:32px; height:32px; border-radius:9px; cursor:pointer; font-size:15px; line-height:1;
+  }
+  .iconbtn:hover{color:var(--ink); background:rgba(255,255,255,.12);}
+  .card{
+    background:linear-gradient(180deg,#141c38,#10152b); border:1px solid #2c3a68;
+    border-radius:20px; padding:22px 26px; max-width:660px; width:94%; max-height:92vh;
+    overflow:auto; text-align:center; box-shadow:0 30px 80px rgba(0,0,0,.6);
+    margin:auto;
+  }
+  .overlay{
+    position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+    background:rgba(4,6,14,.72); backdrop-filter:blur(5px);
+  }
+  #btnLang{
+    position:fixed; left:14px; bottom:14px; z-index:55; cursor:pointer; font-family:inherit;
+    background:rgba(10,14,31,.78); border:1px solid rgba(255,255,255,.25); color:var(--ink);
+    border-radius:20px; padding:6px 16px; font-size:13px; letter-spacing:1px; backdrop-filter:blur(4px);
+  }
+  #btnLang:hover{border-color:var(--gold); color:var(--gold);}
+  #toast{
+    position:fixed; left:50%; top:58px; transform:translateX(-50%) translateY(-8px);
+    background:#20294a; border:1px solid #46579a; color:var(--ink); border-radius:20px;
+    padding:7px 18px; font-size:13px; opacity:0; transition:.2s; z-index:60; pointer-events:none;
+    max-width:80vw; text-align:center;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ================= 主菜单(照片版) ================= */
+  #viewMenu{display:block; background:#0b0f20;}
+  #menuPhoto{
+    position:absolute; inset:0; z-index:0;
+    background-size:cover; background-position:center;
+  }
+  #menuFallback{
+    position:absolute; inset:0; z-index:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; gap:10px;
+    background:radial-gradient(1100px 700px at 50% 40%, rgba(247,201,72,.07), transparent 60%), #0b0f20;
+  }
+  #viewMenu.hasphoto #menuFallback{display:none;}
+  .fbTitle{font-size:52px; font-weight:900; letter-spacing:10px; text-shadow:0 0 34px rgba(255,255,255,.14);}
+  .fbSub{color:var(--ink-dim); font-size:14px;}
+  /* 照片映射层: JS 按 cover 裁剪把尺寸撑成与照片同比例, 按钮坐标即照片坐标 */
+  #menuMap{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2;}
+  .mapbtn{
+    position:absolute; cursor:pointer;
+    background:transparent; border:none; border-radius:14px; padding:0; margin:0;
+    transition:background .12s;
+  }
+  .mapbtn:hover{background:rgba(255,255,255,.10); box-shadow:inset 0 0 0 3px rgba(255,255,255,.4);}
+  .mapbtn:active{background:rgba(255,255,255,.2);}
+  /* 角落按钮(声音开关) */
+  .cornerbtn{
+    position:absolute; z-index:3; cursor:pointer; font-family:inherit;
+    background:rgba(10,14,31,.72); border:1px solid rgba(255,255,255,.22); color:var(--ink);
+    border-radius:20px; padding:6px 14px; font-size:12.5px; backdrop-filter:blur(4px);
+  }
+  .cornerbtn:hover{border-color:var(--gold); color:var(--gold);}
+  .cornerbtn.snd{bottom:16px; right:16px;}
+  #netModeTip{
+    position:absolute; z-index:3; left:50%; bottom:12px; transform:translateX(-50%);
+    color:#cdd6f2; font-size:11.5px; text-align:center; line-height:1.7;
+    background:rgba(8,11,26,.6); border-radius:12px; padding:4px 12px; max-width:80%;
+    pointer-events:none;
+  }
+  .bgmVid{
+    position:fixed; right:0; bottom:0; width:2px; height:2px;
+    opacity:0; pointer-events:none; z-index:-1;
+  }
+
+  /* ================= 大厅(准备/改键) ================= */
+  #viewLobby{overflow:auto;}
+  #viewLobby .card{max-width:620px;}
+  #viewLobby h2{margin:2px 0 6px; letter-spacing:3px; font-size:22px;}
+  #lobbyAddr{
+    background:rgba(0,0,0,.3); border:1px dashed #3d4c7e; border-radius:10px;
+    padding:8px 10px; font-size:12px; color:#b9c6ea; line-height:1.7; margin:4px 0 8px;
+  }
+  #lobbyAddr code{color:var(--gold);}
+  .seats{display:flex; gap:12px; margin:10px 0; text-align:left;}
+  .seat{
+    flex:1; border:1px solid var(--card-line); border-radius:14px; padding:10px 12px;
+    background:rgba(255,255,255,.03); position:relative; min-height:74px;
+  }
+  .seat .who{font-weight:800; font-size:15px;}
+  .seat .who .hosttag{font-size:10px; color:var(--gold); font-weight:400; margin-left:4px;
+    border:1px solid rgba(247,201,72,.5); border-radius:8px; padding:0 5px; vertical-align:1px;}
+  .seat .st{font-size:12px; color:var(--ink-dim); margin-top:6px; line-height:1.5; min-height:32px;}
+  .kickbtn{
+    display:block; width:100%; margin-top:8px; padding:3px 0; font-size:11px; color:#ff9aab;
+    background:rgba(255,93,115,.08); border:1px solid rgba(255,93,115,.45); border-radius:8px;
+    cursor:pointer;
+  }
+  .kickbtn:hover{background:rgba(255,93,115,.2); color:#fff;}
+  .seat.mine{border-color:#4a5c95; box-shadow:inset 0 0 0 1px rgba(74,92,149,.4);}
+  .seat .tagself{
+    position:absolute; top:-8px; right:10px; font-size:10px; color:#0b0f20; font-weight:700;
+    background:var(--gold); border-radius:8px; padding:1px 8px;
+  }
+  .seat.s0 .who{color:var(--c0b);} .seat.s1 .who{color:var(--c1b);}
+  .seat .dot{
+    display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px;
+    vertical-align:1px;
+  }
+  .seat.s0 .dot{background:var(--c0); box-shadow:0 0 8px rgba(58,162,255,.7);}
+  .seat.s1 .dot{background:var(--c1); box-shadow:0 0 8px rgba(255,93,115,.7);}
+  .seat.open .dot{background:rgba(255,255,255,.14); box-shadow:none;}
+
+  /* 按键设置 */
+  .bindwrap{text-align:left; margin:8px 0 4px;}
+  .bindwrap h3{color:var(--gold); font-size:12.5px; letter-spacing:2px; margin:10px 0 6px;}
+  .bindrow{
+    display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:10px;
+    border:1px solid transparent;
+  }
+  .bindrow .ico{width:26px; text-align:center; font-size:17px;}
+  .bindrow .nm{flex:1; font-size:13px;}
+  .bindrow .cost{font-size:10.5px; color:var(--ink-dim); width:58px;}
+  .bindrow kbd, kbd.keycap{
+    background:rgba(0,0,0,.45); border:1px solid #3d4c7e; border-bottom-width:2.5px;
+    border-radius:6px; font-family:inherit; font-size:12.5px; color:#cdd9f5;
+    min-width:44px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+    padding:0 8px;
+  }
+  .bindrow button{
+    background:none; border:1px solid var(--card-line); color:var(--ink-dim); border-radius:8px;
+    font-size:11px; padding:4px 9px; cursor:pointer;
+  }
+  .bindrow button:hover{color:var(--gold); border-color:var(--gold);}
+  .bindrow.pending{background:rgba(247,201,72,.09); border-color:var(--gold);}
+  .bindrow.pending .hintkey{color:var(--gold); font-size:11px; animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.45;}}
+  .bindrow.warn{background:rgba(255,93,115,.09); border-color:var(--c1);}
+  .bindrow.warn .err{color:var(--c1b); font-size:11px;}
+
+  /* ================= 对战界面 ================= */
+  #viewBattle{background:#0a0e1f;}
+  .topbar{
+    display:flex; align-items:center; gap:10px; padding:7px 12px; z-index:8;
+    background:rgba(10,14,31,.92); border-bottom:1px solid rgba(255,255,255,.06);
+  }
+  .topbar .ttl{flex:1; text-align:center; font-size:13.5px; color:var(--ink-dim); line-height:1.5;}
+  .topbar .ttl b{color:var(--ink); font-weight:700;}
+  .score{display:flex; align-items:center; gap:6px;}
+  .score .sname{font-size:11px; color:var(--ink-dim);}
+  .s-dots{display:inline-flex; gap:4px;}
+  .s-dots i{width:12px; height:12px; border-radius:50%; background:rgba(255,255,255,.09);
+    border:1px solid var(--card-line); transition:.25s;}
+  .s-dots i.on{background:var(--gold); border-color:var(--gold); box-shadow:0 0 8px rgba(247,201,72,.85);}
+  .btn-snd{min-width:86px; width:auto; font-size:12px; padding:0 8px;}
+
+  /* 舞台 */
+  #stage{
+    flex:1; position:relative; min-height:0; overflow:hidden;
+    background:
+      radial-gradient(600px 300px at 50% 0%, rgba(255,255,255,.05), transparent 65%),
+      radial-gradient(700px 420px at 50% 8%, rgba(58,120,255,.09), transparent 70%),
+      linear-gradient(180deg,#0d1230 0%, #0a0e1f 62%, #070a16 100%);
+    background-size:cover; background-position:center;   /* 照片背景: 自适应铺满不拉伸 */
+  }
+  /* 启用战斗背景照片(素材/bg.jpg|png|webp)时: 关掉程序化星月地面, 加暗化层保证小人/弹窗清晰 */
+  #stage.photo .stars, #stage.photo .moon, #stage.photo .floor, #stage.photo .groundglow{display:none;}
+  #stage.photo::after{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
+    background:
+      radial-gradient(120% 90% at 50% 40%, rgba(8,11,24,0) 55%, rgba(6,9,20,.4) 100%),
+      linear-gradient(180deg, rgba(6,9,20,.42), rgba(6,9,20,.12) 40%, rgba(5,8,18,.58));
+  }
+  #stage .stars{position:absolute; inset:0 0 58% 0; opacity:.5; pointer-events:none;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 24%, #fff, transparent 60%),
+      radial-gradient(1px 1px at 27% 48%, #cfd8ff, transparent 60%),
+      radial-gradient(1.6px 1.6px at 41% 18%, #fff, transparent 60%),
+      radial-gradient(1px 1px at 58% 38%, #e6ecff, transparent 60%),
+      radial-gradient(1.4px 1.4px at 73% 14%, #fff, transparent 60%),
+      radial-gradient(1px 1px at 86% 42%, #dfe6ff, transparent 60%),
+      radial-gradient(1.6px 1.6px at 93% 22%, #fff, transparent 60%),
+      radial-gradient(1px 1px at 7% 55%, #dfe6ff, transparent 60%),
+      radial-gradient(1.2px 1.2px at 64% 55%, #fff, transparent 60%),
+      radial-gradient(1px 1px at 49% 8%, #fff, transparent 60%);
+    animation:twinkle 3.4s ease-in-out infinite alternate;}
+  @keyframes twinkle{from{opacity:.25;} to{opacity:.6;}}
+  #stage .moon{position:absolute; right:8%; top:7%; width:64px; height:64px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #fdf6dd, #d9c98a 75%); opacity:.75;
+    box-shadow:0 0 34px 8px rgba(247,222,150,.18);}
+  #stage .floor{
+    position:absolute; left:0; right:0; bottom:0; height:30%; pointer-events:none;
+    background:linear-gradient(180deg, rgba(58,120,255,.14), rgba(255,255,255,.02) 46%, rgba(0,0,0,.32) 100%);
+  }
+  #stage .floor::before{
+    content:""; position:absolute; top:2px; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, transparent, rgba(122,170,255,.5) 18%, rgba(255,140,160,.45) 82%, transparent);
+    filter:drop-shadow(0 0 6px rgba(122,170,255,.4));
+  }
+  #stage .groundglow{position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    width:520px; height:120px; pointer-events:none;
+    background:radial-gradient(50% 50% at 50% 100%, rgba(122,170,255,.10), transparent 70%);}
+
+  /* 计时条 */
+  #timerWrap{
+    position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    width:min(640px, 82%); height:8px; z-index:9;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); border-radius:10px;
+    overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,.35);
+  }
+  #timerBar{position:absolute; inset:0; transform-origin:left;
+    background:linear-gradient(90deg,var(--c0),#67d3ff,var(--gold)); transition:none;}
+  #timerWrap.hot #timerBar{background:linear-gradient(90deg,#ffd75e,#ff7a45,#ff3b4d);}
+  #timerWrap.hot{animation:pulseBar 1s infinite;}
+  @keyframes pulseBar{0%,100%{box-shadow:0 4px 16px rgba(0,0,0,.35);} 50%{box-shadow:0 4px 22px rgba(255,80,90,.55);}}
+  #timerTxt{position:absolute; left:50%; top:16px; transform:translateX(-50%);
+    font-size:15px; font-weight:800; color:var(--ink); letter-spacing:2px;
+    font-variant-numeric:tabular-nums; text-shadow:0 2px 8px rgba(0,0,0,.6);}
+  #turnChip{position:absolute; top:44px; left:50%; transform:translateX(-50%);
+    font-size:11px; color:var(--ink-dim); letter-spacing:2px; z-index:8;
+    background:rgba(0,0,0,.3); border:1px solid var(--card-line); padding:3px 12px; border-radius:20px;}
+
+  /* ---------- 表情互动 ---------- */
+  #emojiBar{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:7px; z-index:12;
+  }
+  #emojiBar .eb{
+    width:40px; height:40px; border-radius:50%; font-size:20px; line-height:1;
+    background:rgba(13,18,42,.85); border:1px solid var(--card-line);
+    cursor:pointer; transition:transform .12s, border-color .12s, opacity .2s;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  #emojiBar .eb:hover:not(:disabled){border-color:var(--gold); transform:scale(1.14);}
+  #emojiBar .eb:active:not(:disabled){transform:scale(.9);}
+  #emojiBar .eb:disabled{opacity:.3; cursor:not-allowed;}
+  #emojiFx{position:absolute; inset:0; pointer-events:none; z-index:14;}
+  #emojiFx .em{
+    position:absolute; font-size:76px; line-height:1; opacity:0;
+    filter:drop-shadow(0 6px 18px rgba(0,0,0,.5));
+    animation:emFly 1s ease-out forwards; will-change:transform,opacity;
+  }
+  #emojiFx .em.s0{left:30%;}
+  #emojiFx .em.s1{left:64%;}
+  @keyframes emFly{
+    0%{transform:translate(-50%,0) scale(.4) rotate(-10deg); opacity:0;}
+    12%{opacity:1;}
+    70%{opacity:1;}
+    100%{transform:translate(-50%,-150px) scale(1.14) rotate(8deg); opacity:0;}
+  }
+  @media (max-width:760px){
+    #emojiBar{left:6px; gap:5px;}
+    #emojiBar .eb{width:32px; height:32px; font-size:16px;}
+    #emojiFx .em{font-size:54px;}
+  }
+
+  /* 角色 */
+  .figw{position:absolute; bottom:17%; width:0; z-index:6;}
+  .figw.s0{left:23%;} .figw.s1{right:23%;}
+  .hold{position:relative;}
+  .figw .unit{position:relative; width:150px; transform:translateX(-50%);}
+  .figw.s1 .unit{transform:translateX(-50%) scaleX(-1);}   /* 红方面朝左侧对手 */
+  .figw .unit.noidle .bob{animation-play-state:paused;}
+  .bob{animation:bob 1.7s ease-in-out infinite alternate; transform-origin:50% 100%;}
+  @keyframes bob{from{transform:translateY(0);} to{transform:translateY(-6px);}}
+  .bob .shd{position:absolute; left:50%; bottom:-6px; transform:translateX(-50%);
+    width:96px; height:16px; border-radius:50%; background:rgba(0,0,0,.45);
+    filter:blur(3px); animation:shdPulse 1.7s ease-in-out infinite alternate;}
+  @keyframes shdPulse{from{opacity:.75; transform:translateX(-50%) scaleX(1);} to{opacity:.45; transform:translateX(-50%) scaleX(.9);}}
+  .mv{position:relative; transition:transform .16s ease-out; will-change:transform;}
+  .figw.s0 .mv{transform-origin:50% 100%;}
+  .figw.s1 .mv{transform-origin:50% 100%;}
+
+  /* 角色素材: 默认纯 CSS 小人; 有 素材/p0.png、p1.png(或 svg/webp/gif/jpg/jpeg)时自动换成图片 */
+  .fig{position:relative; width:96px; height:150px; margin:0 auto;}
+  .fig.hasimg{height:205px;}   /* 图片模式加高, 头顶对话框才不会压到角色头部 */
+  .fig img.art{
+    position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+    display:none;
+    max-width:240px; max-height:205px; width:auto; height:auto;
+    object-fit:contain;
+    filter:drop-shadow(0 8px 12px rgba(0,0,0,.4));
+  }
+  .fig.hasimg .cssparts{display:none;}
+  .fig.hasimg img.art{display:block;}
+  .fig.dead img.art{filter:grayscale(.9) brightness(.55) drop-shadow(0 8px 12px rgba(0,0,0,.4));}
+  @media (max-width:760px){
+    .fig.hasimg{height:160px;}
+    .fig img.art{max-width:150px; max-height:160px;}
+  }
+  .head{
+    position:absolute; left:50%; top:4px; margin-left:-27px; width:54px; height:56px;
+    background:#ffe6c9; border-radius:46% 46% 42% 42%; z-index:4;
+    box-shadow:inset -7px -5px 0 rgba(0,0,0,.05);
+  }
+  .hood{
+    position:absolute; left:50%; top:2px; margin-left:-29px; width:58px; height:36px;
+    border-radius:50% 50% 30% 30%/100% 100% 40% 40%; z-index:5;
+  }
+  .hood::before{content:""; position:absolute; left:50%; bottom:-12px; transform:translateX(-50%);
+    width:26px; height:14px; border-radius:0 0 8px 8px; opacity:.85;}
+  .hood::after{content:""; position:absolute; left:-8px; top:16px; width:9px; height:20px;
+    border-radius:4px; opacity:.85; transform:rotate(14deg);}
+  .s0 .hood{background:linear-gradient(180deg,var(--c0b),var(--c0)); box-shadow:0 3px 8px rgba(0,0,0,.3);}
+  .s0 .hood::before{background:var(--c0d);} .s0 .hood::after{background:var(--c0d);}
+  .s1 .hood{background:linear-gradient(180deg,var(--c1b),var(--c1)); box-shadow:0 3px 8px rgba(0,0,0,.3);}
+  .s1 .hood::before{background:var(--c1d);} .s1 .hood::after{background:var(--c1d);}
+  .face{position:absolute; inset:14px 8px 6px 8px; z-index:6;}
+  .eye{position:absolute; top:16px; width:7px; height:9px; background:#262b3a; border-radius:50%;}
+  .eye.eL{left:9px;} .eye.eR{right:9px;}
+  .brow{position:absolute; top:8px; width:13px; height:3.5px; background:#262b3a; border-radius:3px;}
+  .brow.bL{left:5px; transform:rotate(14deg);} .brow.bR{right:5px; transform:rotate(-14deg);}
+  .mouth{position:absolute; bottom:4px; left:50%; margin-left:-5px; width:10px; height:5px;
+    border-bottom:2.5px solid #262b3a; border-radius:0 0 10px 10px;}
+  .dead .eye{background:#e8524b; height:2.6px; border-radius:2px; top:19px;}
+  .dead .eye.eL{transform:rotate(45deg);} .dead .eye.eR{transform:rotate(-45deg);}
+  .dead .brow{opacity:0;}
+  .dead .mouth{width:9px; height:9px; border:none; background:#8a3a45; border-radius:50%; margin-left:-4.5px; bottom:0;}
+  .torso{
+    position:absolute; left:50%; top:56px; margin-left:-25px; width:50px; height:62px;
+    border-radius:16px 16px 12px 12px; z-index:2;
+  }
+  .s0 .torso{background:linear-gradient(180deg,#4db3ff,#2b86e0);}
+  .s1 .torso{background:linear-gradient(180deg,#ff8095,#e04a62);}
+  .torso .emblem{position:absolute; top:9px; left:50%; transform:translateX(-50%);
+    width:13px; height:13px; border-radius:50%; background:rgba(255,255,255,.85);}
+  .torso .belt{position:absolute; left:-3px; right:-3px; bottom:7px; height:9px;
+    background:#232a40; border-radius:5px;}
+  .torso .belt::after{content:""; position:absolute; left:50%; top:1px; transform:translateX(-50%);
+    width:7px; height:7px; border-radius:2px; background:var(--gold);}
+  .arm{position:absolute; top:58px; width:13px; height:40px; border-radius:8px; z-index:3;
+    transform-origin:50% 5px; transition:transform .16s ease-out;}
+  .s0 .arm{background:linear-gradient(180deg,#5bb9ff,#2b86e0);}
+  .s1 .arm{background:linear-gradient(180deg,#ff93a5,#e04a62);}
+  .arm.aL{left:calc(50% - 43px); z-index:1; transform:rotate(24deg);}
+  .arm.aR{right:calc(50% - 43px); z-index:3; transform:rotate(-24deg);}
+  .arm.aR.raise{transform:rotate(-115deg);}    /* 蓄力举手 */
+  .arm.aL.raise{transform:rotate(80deg);}
+  .arm.fwdL{transform:rotate(-76deg);}          /* 前挡 */
+  .arm.fwdR{transform:rotate(-76deg);}
+  .leg{position:absolute; bottom:0; width:17px; height:24px; border-radius:8px 8px 5px 5px;
+    background:#20263c; z-index:1;}
+  .leg.l{left:calc(50% - 20px);} .leg.r{right:calc(50% - 20px);}
+  .shield{
+    position:absolute; left:calc(50% + 2px); top:66px; width:30px; height:38px;
+    margin-left:-4px; z-index:4; opacity:0; transform:scale(.6); transition:.14s;
+    clip-path:polygon(50% 0, 92% 20%, 92% 78%, 50% 100%, 8% 78%, 8% 20%);
+  }
+  .s0 .shield{background:linear-gradient(180deg,#9fdcff,#2b86e0); border:2px solid #fff;}
+  .s1 .shield{background:linear-gradient(180deg,#ffc2cc,#e04a62); border:2px solid #fff;}
+  .shield.up{opacity:1; transform:scale(1);}
+  .shield.big{width:44px; height:56px; top:58px; left:calc(50% + 6px);}
+  .shield.hitflash{filter:brightness(1.7) drop-shadow(0 0 10px #fff);}
+
+  .fx{position:absolute; left:-70px; right:-70px; top:-90px; bottom:-40px; pointer-events:none; z-index:9;}
+  .fx span{position:absolute; font-size:34px; animation:fxPop .55s ease-out forwards; will-change:opacity,transform;}
+  .fx span.big{font-size:58px;}
+  .fx span.strike{color:#fff; text-shadow:0 0 14px rgba(255,255,255,.9); font-size:30px;}
+  @keyframes fxPop{0%{opacity:0; transform:translateY(6px) scale(.4);} 22%{opacity:1;} 100%{opacity:0; transform:translateY(-34px) scale(1.25);}}
+  .fx span.hitup{animation:fxHit .6s ease-out forwards;}
+  @keyframes fxHit{0%{opacity:0; transform:scale(.2) translateY(10px);} 18%{opacity:1; transform:scale(1.4) translateY(-4px);} 100%{opacity:0; transform:scale(1.1) translateY(-26px);}}
+
+  /* 爆发粒子(格挡火花 / 命中爆散 / 倒地扬尘) */
+  .fx span.p{
+    position:absolute; width:6px; height:6px; border-radius:50%;
+    opacity:0; pointer-events:none; will-change:transform,opacity;
+    animation:pFly .62s ease-out forwards;
+  }
+  @keyframes pFly{
+    0%{transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1;}
+    100%{transform:translate(-50%,-50%) translate(var(--dx,0px),var(--dy,0px)) scale(.15); opacity:0;}
+  }
+  .fx span.p.blink{animation:pFly .9s ease-out forwards;}
+  .fx span.dust{
+    position:absolute; width:16px; height:9px; border-radius:50%;
+    background:rgba(205,220,255,.5); filter:blur(2px); opacity:0; pointer-events:none;
+    animation:dustUp .8s ease-out forwards; will-change:transform,opacity;
+  }
+  @keyframes dustUp{
+    0%{transform:translate(-50%,-50%) translate(0,4px) scale(.5); opacity:.9;}
+    100%{transform:translate(-50%,-50%) translate(var(--dx,0px),calc(var(--dy,0px) - 52px)) scale(1.7); opacity:0;}
+  }
+
+  /* 头顶对话框(揭示对方选项 / 己方提示) */
+  .bub{
+    position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%);
+    min-width:88px; max-width:150px; text-align:center; z-index:12;
+    background:rgba(13,18,42,.92); border:1.5px solid var(--card-line);
+    border-radius:13px 13px 13px 4px; padding:5px 9px 6px;
+    font-size:12px; font-weight:700; line-height:1.35; letter-spacing:0.5px;
+    opacity:0; transform-origin:50% 100%;
+  }
+  .bub::after{content:""; position:absolute; left:14px; bottom:-6px; width:11px; height:11px;
+    background:inherit; border-right:1.5px solid var(--card-line); border-bottom:1.5px solid var(--card-line);
+    transform:rotate(45deg);}
+  .s0 .bub{border-color:var(--c0); color:#d9ecff;}
+  .s1 .bub{border-color:var(--c1); color:#ffe3e8;}
+  .bub.show{opacity:1; animation:bubPop .28s ease-out;}
+  .bub .bi{display:block; font-size:21px; line-height:1.1;}
+  .bub .bt{display:block; font-size:11.5px; margin-top:2px;}
+  .bub.think .bt{color:var(--ink-dim); font-weight:400; font-style:italic;}
+  .bub.think::after{display:none;}
+  @keyframes bubPop{0%{opacity:0; transform:translateX(-50%) scale(.4);} 70%{transform:translateX(-50%) scale(1.08);} 100%{opacity:1; transform:translateX(-50%) scale(1);}}
+
+  /* 大字横幅 / 叙事行 */
+  #bang{
+    position:absolute; left:0; right:0; top:30%; text-align:center; z-index:20;
+    font-size:74px; font-weight:900; letter-spacing:10px; pointer-events:none;
+    text-shadow:0 0 44px rgba(255,90,90,.95), 0 5px 0 rgba(0,0,0,.45);
+    color:#fff; opacity:0;
+  }
+  #bang.small{font-size:42px; letter-spacing:5px; top:20%; text-shadow:0 0 30px rgba(255,255,255,.35), 0 4px 0 rgba(0,0,0,.4);}
+  #bang.gold{text-shadow:0 0 44px rgba(247,201,72,.9), 0 5px 0 rgba(0,0,0,.45);}
+  #bang.show{animation:koPop 1.15s ease-out forwards;}
+  @keyframes koPop{0%{opacity:0; transform:scale(2.1);} 18%{opacity:1; transform:scale(1);} 74%{opacity:1;} 100%{opacity:0; transform:scale(.94);}}
+  #line{
+    position:absolute; bottom:2.5%; left:50%; transform:translateX(-50%); z-index:10;
+    background:rgba(8,11,26,.72); border:1px solid var(--card-line); border-radius:16px;
+    padding:5px 16px; font-size:12.5px; color:#c3d0f2; text-align:center; max-width:88%;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:.25s;
+  }
+  #line.show{opacity:1;}
+  #line .b0{color:var(--c0b);} #line .b1{color:var(--c1b);} #line .glod{color:var(--gold);}
+
+  .shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(7px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(4px);}}
+
+  /* 底部 HUD + 出招卡片 */
+  #dock{
+    display:flex; align-items:center; gap:12px; padding:6px 12px 10px;
+    background:linear-gradient(180deg, rgba(10,14,31,.0), rgba(10,14,31,.94) 30%);
+    z-index:9; flex-wrap:wrap; justify-content:center;
+  }
+  .hpbox{display:flex; flex-direction:column; gap:4px; min-width:150px;}
+  .hpbox .hrow{display:flex; align-items:center; gap:7px;}
+  .hpbox .htag{font-size:12px; font-weight:800; letter-spacing:1px; display:flex; align-items:center; gap:6px;}
+  .hpbox .hrow .heart{font-size:17px; transition:.2s; display:inline-block;}
+  .hpbox .heart.dead{filter:grayscale(1) brightness(.5); transform:scale(.9);}
+  .hpbox .hrow .ener{font-size:11.5px; color:var(--ink-dim); margin-left:auto; display:flex; align-items:center; gap:4px;}
+  .hpbox .hrow .ener b{color:var(--gold); font-size:18px; font-variant-numeric:tabular-nums;}
+  .hpbox .hrow .ener b.bump{animation:eBump .3s ease-out;}
+  @keyframes eBump{0%{transform:scale(1.5);} 100%{transform:scale(1);}}
+  .hpbox.s0 .htag{color:var(--c0b);} .hpbox.s1 .htag{color:var(--c1b);}
+  .hpbox .htag .dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
+  .hpbox.s0 .htag .dot{background:var(--c0); box-shadow:0 0 7px rgba(58,162,255,.8);}
+  .hpbox.s1 .htag .dot{background:var(--c1); box-shadow:0 0 7px rgba(255,93,115,.8);}
+  .hpbox.mine{border:1px solid rgba(74,92,149,.55); background:rgba(255,255,255,.03);
+    border-radius:12px; padding:6px 10px;}
+  .hpbox.you .htag::after{content:"(你)"; font-size:10px; color:var(--ink-faint); font-weight:400;}
+  body.lang-en .hpbox.you .htag::after{content:"(you)";}
+  .hpbox.opp .ener{display:none !important;}   /* 只显示自己的能量, 隐藏对方能量 */
+  .hpbox.opp{opacity:.85;}
+
+  #cards{display:flex; gap:8px; justify-content:center; flex:1; min-width:0;}
+  #cards .act{
+    position:relative; display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:var(--card); border:1px solid var(--card-line); border-radius:12px;
+    color:var(--ink); padding:7px 4px 6px; cursor:pointer; transition:.14s;
+    min-width:118px; text-align:center; flex:1; max-width:150px;
+  }
+  #cards .act:hover:not(:disabled){border-color:#4a5c95; transform:translateY(-2px);}
+  #cards .act:active:not(:disabled){transform:scale(.96);}
+  #cards .act:disabled{opacity:.3; cursor:not-allowed;}
+  #cards .act .ic{font-size:22px; line-height:1;}
+  #cards .act .nm{font-size:13.5px; font-weight:800; margin-top:3px;}
+  #cards .act .tp{font-size:10px; color:var(--ink-dim);}
+  #cards .act .chip{
+    position:absolute; top:4px; right:6px; font-size:9px; color:var(--ink-dim);
+    background:rgba(255,255,255,.07); border:1px solid var(--card-line); border-radius:5px; padding:1px 5px;
+  }
+  #cards .act kbd{
+    margin-top:3px; background:rgba(0,0,0,.45); border:1px solid #3d4c7e; border-bottom-width:2.5px;
+    border-radius:6px; font-family:inherit; font-size:11px; color:#cdd9f5; min-width:24px;
+    height:22px; display:inline-flex; align-items:center; justify-content:center; padding:0 6px;
+  }
+  #cards .act.sel{outline:2px solid var(--gold); outline-offset:-1px; background:#222a4e;
+    box-shadow:0 0 16px rgba(247,201,72,.4);}
+  #cards .act.glow{animation:cardGlow .5s ease-out 2;}
+  @keyframes cardGlow{0%{outline-color:transparent;} 50%{outline-color:#fff; box-shadow:0 0 20px rgba(255,255,255,.8);} 100%{outline-color:var(--gold);}}
+
+  /* 结算面板 */
+  .statline{color:var(--ink-dim); font-size:13px; margin:2px 0 12px;}
+  .statline b{color:var(--ink);}
+  #finalBig{font-size:42px; margin:6px 0;}
+  .frow{display:flex; justify-content:center; gap:12px; margin:10px 0;}
+  .fcard{border:1px solid var(--card-line); border-radius:14px; padding:8px 16px; min-width:120px;}
+  .fcard .who{font-size:15px; font-weight:800;}
+  .fcard .wins{font-size:11px; color:var(--ink-dim); margin-top:2px;}
+  .fcard.win{border-color:var(--gold); box-shadow:0 0 18px rgba(247,201,72,.25);}
+  .fcard.win .wins{color:var(--gold);}
+  #finalWait{font-size:12px; color:var(--gold); min-height:18px; margin:6px 0 2px;}
+  .rules{text-align:left; font-size:13px; color:#c6d1f0; line-height:1.9;}
+  .rules h3{color:var(--gold); font-size:14px; margin:16px 0 6px; letter-spacing:2px;}
+  .rules table{border-collapse:collapse; width:100%; font-size:12.5px; margin:6px 0;}
+  .rules td{border:1px solid var(--card-line); padding:4px 10px;}
+  .rules td b{color:var(--ink);}
+  .rules .dim{color:#7b88b3; font-size:12px;}
+  .rules code{background:rgba(0,0,0,.4); padding:1px 7px; border-radius:6px; border:1px solid #33406d;}
+  .rules .nowrap{white-space:nowrap;}
+
+  @media (max-width:760px){
+    #cards .act{min-width:0; max-width:none;}
+    #cards .act .tp{display:none;}
+    #cards .act .nm{font-size:12px;}
+    #dock{gap:8px;}
+    .hpbox{min-width:0; flex:1;}
+    .hpbox .hrow .ener{display:none;}
+    #bang{font-size:52px;}
+    #line{white-space:normal;}
+  }
+  @media (max-height:620px){
+    .figw{transform:scale(.82); transform-origin:50% 100%;}
+    #bang{font-size:52px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 主菜单(照片底图 + 照图摆放的热区按键) ============ -->
+<div class="view" id="viewMenu">
+  <!-- 背景照片(素材/menu.jpg|png|webp): 加载成功后全屏 cover -->
+  <div id="menuPhoto"></div>
+  <div id="menuFallback">
+    <div class="fbTitle">⚔️ Mindstrike</div>
+    <div class="fbSub" id="fbSub">心战 · 2 秒出招 · 命中即 K.O. · BO3</div>
+  </div>
+  <!-- 照片坐标系映射层: 与 cover 裁剪严格同步; 热区由 app.js 按 MENU_SPOTS 动态生成,
+       每个按键的碰撞箱大小按照片实际按钮各不相同(Start Game 大, Rules/Practice/Quit 各自独立) -->
+  <div id="menuMap"></div>
+  <button class="cornerbtn snd" id="btnSnd1">♪ 声音: 开</button>
+  <div id="netModeTip"></div>
+</div>
+
+<!-- ============ 大厅(准备 + 改键) ============ -->
+<div class="view hide" id="viewLobby">
+  <div class="card">
+    <h2 id="lobbyTitle">🛡️ 准备房间</h2>
+    <div id="lobbyAddr" class="hide"></div>
+    <div class="seats">
+      <div class="seat s0 open" id="seat0"><div class="dot"></div><span class="who" id="who0">蓝方</span>
+        <span class="tagself hide" id="selfTag0">你</span>
+        <div class="st" id="seatSt0"></div>
+        <button class="kickbtn hide" id="kick0" title="把该玩家移出房间">🚫 移出</button></div>
+      <div class="seat s1 open" id="seat1"><div class="dot"></div><span class="who" id="who1">红方</span>
+        <span class="tagself hide" id="selfTag1">你</span>
+        <div class="st" id="seatSt1"></div>
+        <button class="kickbtn hide" id="kick1" title="把该玩家移出房间">🚫 移出</button></div>
+    </div>
+    <div class="bindwrap">
+      <h3 id="keysHead">⌨️ 我的按键 (点击 [改键] 后按下新键 · 也可直接鼠标点卡片)</h3>
+      <div id="keysList"></div>
+    </div>
+    <button class="bigbtn primary" id="btnReady" disabled>准备就绪</button>
+    <div style="height:10px"></div>
+    <button class="linkbtn" id="btnRules2">规则 &amp; 操作</button>
+    <button class="linkbtn" id="btnLeave">← 离开房间</button>
+  </div>
+</div>
+
+<!-- ============ 对战 ============ -->
+<div class="view hide" id="viewBattle">
+  <header class="topbar">
+    <button class="iconbtn" id="btnQuit" title="离开本场对战">🏠</button>
+    <div class="ttl" id="btlMeta"><span id="mw1">第</span> <b id="setNo">1</b> <span id="mw2">小局</span> · <span id="mw3">回合</span> <b id="turnNo">0</b></div>
+    <div class="score">
+      <span class="sname" id="sName0">蓝方</span>
+      <span class="s-dots" id="score0"></span>
+      <b style="color:var(--ink-dim)">:</b>
+      <span class="s-dots" id="score1"></span>
+      <span class="sname" id="sName1">红方</span>
+    </div>
+    <button class="iconbtn btn-snd" id="btnSnd2" title="声音开关">♪ 开</button>
+    <button class="iconbtn hide" id="btnKick" title="把对手移出对局(房主)">🚫</button>
+    <button class="iconbtn" id="btnRules3" title="规则">?</button>
+  </header>
+
+  <section id="stage">
+    <div class="stars"></div><div class="moon"></div><div class="floor"></div><div class="groundglow"></div>
+
+    <div id="timerWrap" class="hide"><div id="timerBar"></div></div>
+    <div id="timerTxt" class="hide"></div>
+    <div id="turnChip" class="hide"></div>
+
+    <!-- 表情互动: 弹出的表情层 + 左侧表情按钮栏(对战中随时可发, 持续1秒/冷却1.5秒) -->
+    <div id="emojiFx"></div>
+    <div id="emojiBar"></div>
+
+    <!-- 角色 0(左/蓝) -->
+    <div class="figw s0" id="figw0">
+      <div class="hold">
+        <div class="bub" id="bub0"><span class="bi"></span><span class="bt"></span></div>
+        <div class="unit" id="unit0">
+          <div class="bob">
+            <div class="shd"></div>
+            <div class="mv" id="mv0">
+              <div class="fig" id="fig0">
+                <img class="art" alt="">
+                <div class="cssparts">
+                  <div class="leg l"></div><div class="leg r"></div>
+                  <div class="arm aL" id="armL0"></div>
+                  <div class="arm aR" id="armR0"></div>
+                  <div class="torso"><div class="emblem"></div><div class="belt"></div></div>
+                  <div class="head">
+                    <div class="hood"></div>
+                    <div class="face">
+                      <i class="brow bL"></i><i class="brow bR"></i>
+                      <i class="eye eL"></i><i class="eye eR"></i>
+                      <span class="mouth"></span>
+                    </div>
+                  </div>
+                  <div class="shield" id="sh0"></div>
+                </div>
+              </div>
+              <div class="fx" id="fx0"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 角色 1(右/红) -->
+    <div class="figw s1" id="figw1">
+      <div class="hold">
+        <div class="bub" id="bub1"><span class="bi"></span><span class="bt"></span></div>
+        <div class="unit" id="unit1">
+          <div class="bob">
+            <div class="shd"></div>
+            <div class="mv" id="mv1">
+              <div class="fig" id="fig1">
+                <img class="art" alt="">
+                <div class="cssparts">
+                  <div class="leg l"></div><div class="leg r"></div>
+                  <div class="arm aL" id="armL1"></div>
+                  <div class="arm aR" id="armR1"></div>
+                  <div class="torso"><div class="emblem"></div><div class="belt"></div></div>
+                  <div class="head">
+                    <div class="hood"></div>
+                    <div class="face">
+                      <i class="brow bL"></i><i class="brow bR"></i>
+                      <i class="eye eL"></i><i class="eye eR"></i>
+                      <span class="mouth"></span>
+                    </div>
+                  </div>
+                  <div class="shield" id="sh1"></div>
+                </div>
+              </div>
+              <div class="fx" id="fx1"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bang"></div>
+    <div id="line"></div>
+  </section>
+
+  <footer id="dock">
+    <div class="hpbox s0" id="hudA">
+      <div class="htag" id="tag0"><span class="dot"></span><span id="name0">蓝方</span></div>
+      <div class="hrow">
+        <span class="heart" id="heart0">❤️</span> HP
+        <span class="ener">⚡ <b id="en0">0</b></span>
+      </div>
+    </div>
+    <div id="cards"></div>
+    <div class="hpbox s1" id="hudB">
+      <div class="htag" id="tag1"><span class="dot"></span><span id="name1">红方</span></div>
+      <div class="hrow">
+        HP <span class="heart" id="heart1">❤️</span>
+        <span class="ener">⚡ <b id="en1">0</b></span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============ 覆盖层 ============ -->
+<div class="overlay hide" id="ovRules"><div class="card rules" id="rulesCard"></div></div>
+
+<div class="overlay hide" id="ovFinal">
+  <div class="card">
+    <div id="finalBig"></div>
+    <div class="frow" id="finalCards"></div>
+    <div class="statline" id="finalSub"></div>
+    <div id="finalWait"></div>
+    <div class="modebtns" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <button class="bigbtn gold" id="btnAgain">🔄 再来一局</button>
+      <button class="bigbtn red" id="btnMenu">🏠 返回主菜单</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hide" id="ovQuit">
+  <div class="card" style="max-width:380px;">
+    <h3 id="qtT">离开当前对局?</h3>
+    <p class="statline" id="qtP">对局将直接结束(对手会收到通知)</p>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button class="bigbtn blue" id="btnQuitYes" style="min-width:130px;">离开</button>
+      <button class="bigbtn red" id="btnQuitNo" style="min-width:130px;">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hide" id="ovKick">
+  <div class="card" style="max-width:380px;">
+    <h3 id="ktT">🚫 把对手移出房间?</h3>
+    <p class="statline" id="ktP">对方将被立刻移出(60 秒内无法重连)。此操作不可撤销。</p>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button class="bigbtn red" id="btnKickYes" style="min-width:130px;">确认移出</button>
+      <button class="bigbtn blue" id="btnKickNo" style="min-width:130px;">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hide" id="ovLost">
+  <div class="card" style="max-width:380px;">
+    <h3 id="lostT">⚠️ 连接已断开</h3>
+    <p class="statline" id="lostMsg">与对局服务器的连接中断了</p>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button class="bigbtn blue" id="btnLostRetry" style="min-width:130px;">重试</button>
+      <button class="bigbtn red" id="btnLostMenu" style="min-width:130px;">回主菜单</button>
+    </div>
+  </div>
+</div>
+
+<button id="btnLang" title="切换语言 / Language">EN</button>
+<div id="toast"></div>
+<video id="bgmVid" src="音效/游戏初始背景音乐.mp4" loop playsinline preload="auto"
+       aria-hidden="true" tabindex="-1" class="bgmVid"></video>
+
+<script src="game.js"></script>
+<script src="sfx.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
